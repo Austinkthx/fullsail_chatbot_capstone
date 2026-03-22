@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/fullsail_chatbot_capstone/static/css/main.655d829e.css",
-    "main.js": "/fullsail_chatbot_capstone/static/js/main.5e7b2d80.js",
+    "main.css": "/fullsail_chatbot_capstone/static/css/main.1ca93654.css",
+    "main.js": "/fullsail_chatbot_capstone/static/js/main.c953007f.js",
     "index.html": "/fullsail_chatbot_capstone/index.html",
-    "main.655d829e.css.map": "/fullsail_chatbot_capstone/static/css/main.655d829e.css.map",
-    "main.5e7b2d80.js.map": "/fullsail_chatbot_capstone/static/js/main.5e7b2d80.js.map"
+    "main.1ca93654.css.map": "/fullsail_chatbot_capstone/static/css/main.1ca93654.css.map",
+    "main.c953007f.js.map": "/fullsail_chatbot_capstone/static/js/main.c953007f.js.map"
   },
   "entrypoints": [
-    "static/css/main.655d829e.css",
-    "static/js/main.5e7b2d80.js"
+    "static/css/main.1ca93654.css",
+    "static/js/main.c953007f.js"
   ]
 }
