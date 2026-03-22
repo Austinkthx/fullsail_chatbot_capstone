@@ -10,21 +10,13 @@ export default function ChatMessage({ message, models }) {
   return (
     <div className={`message ${isUser ? 'message-user' : 'message-assistant'}`}>
       <div className="message-avatar">
-        {isUser ? (
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <circle cx="9" cy="6" r="3" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M3 15.5c0-3 2.7-5.5 6-5.5s6 2.5 6 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        ) : (
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="2" y="2" width="14" height="14" rx="4" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M6 8h6M6 11h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        )}
+        {isUser ? '▶' : '◆'}
       </div>
       <div className="message-body">
         <div className="message-header">
-          <span className="message-role">{isUser ? 'You' : model?.name || 'Assistant'}</span>
+          <span className="message-role">
+            {isUser ? 'You' : model?.name || message.model_id || 'Assistant'}
+          </span>
         </div>
         <div className="message-content">
           {isUser ? (

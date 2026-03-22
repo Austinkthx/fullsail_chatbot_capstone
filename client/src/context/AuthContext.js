@@ -11,7 +11,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // Verify token
       api.get('/auth/me')
         .then((res) => setUser(res.data))
         .catch(() => {

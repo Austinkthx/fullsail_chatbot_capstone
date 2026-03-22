@@ -1,170 +1,76 @@
-# NexusChat — Multi-LLM Chatbot
+# NexusChat Sci-Fi Redesign — File Replacement Guide
 
-A full-stack chatbot web application with multi-model support, chat history, and user accounts.
+## Files to Replace (6 total)
 
-Built with **React** (frontend) + **Python FastAPI** (backend) + **MongoDB** (database).
+Replace these files in your `nexuschat/client/` folder with the ones in this download:
 
-## Features
+### 1. `client/public/index.html`
+**What changed:** Replaced the Inter + JetBrains Mono fonts with sci-fi fonts:
+- **Orbitron** — display headings (NexusChat title, buttons, labels)
+- **Share Tech Mono** — monospace/terminal elements (model names, status text)
+- **Rajdhani** — body text (messages, inputs, general UI)
 
-- **LLM Model Dropdown** — Switch between Ollama (local), OpenAI, and Anthropic models
-- **Chat History** — Conversations saved and organized in the sidebar
-- **User Accounts** — Register/login with JWT authentication
-- **Streaming Responses** — Real-time token-by-token display via SSE
-- **Auto-Titling** — Conversations auto-title from your first message
-- **Dark Theme** — Polished UI with indigo accent
-- **Docker Support** — Run everything with one command
+### 2. `client/src/App.css` ⭐ (THE BIG ONE)
+**What changed:** Complete CSS replacement. This is where 90% of the visual change lives.
+- CSS variables at the top define the entire color system (copy these if you use Tailwind)
+- Deep space black backgrounds (`#05060a`, `#0a0c14`)
+- Electric cyan neon accent (`#00e5ff`) + magenta (`#ff2d78`) + neon green (`#39ff14`)
+- Grid background pattern via `body::before`
+- Scanline overlay via `body::after`
+- Glowing corner brackets on the login card (CSS `::before` / `::after`)
+- Sweep-shine button animation (`.btn-primary::before`)
+- Neon-lit active session indicator in sidebar
+- Gradient edge glow on sidebar border
+- Rotating square logo on empty chat state
+- Cyan left-border on AI messages, green left-border on user messages
+- Holographic glow on the topbar
+- Animated status dot pulse
 
-## Supported Models
+### 3. `client/src/pages/LoginPage.js`
+**What changed:**
+- Added `<div className="auth-top-bar" />` inside auth-container (cyan accent line)
+- Wrapped logo icon in `auth-logo-icon` div (for neon glow box)
+- Added `auth-subtitle` div for "Multi-LLM Chatbot" tagline
+- Labels now styled with `//` prefix via CSS (no JSX change needed, CSS handles it)
+- Submit button uses `btn-primary` class for the sweep-shine animation
 
-### Local (Ollama — free, runs on your machine)
-| Model | ID |
-|-------|-----|
-| Llama 3.2 (3B) | `llama3.2` |
-| Llama 3.2 (1B) | `llama3.2:1b` |
-| Mistral 7B | `mistral` |
-| Gemma 2 (2B) | `gemma2:2b` |
-| Qwen 2.5 (3B) | `qwen2.5:3b` |
-| Phi-3 Mini | `phi3:mini` |
-| DeepSeek R1 (1.5B) | `deepseek-r1:1.5b` |
+### 4. `client/src/pages/ChatPage.js`
+**What changed:**
+- Topbar wrapped in `topbar-left` div with hamburger button
+- Empty state uses `empty-logo` div (rotating square animation)
+- Model pills use `model-pill` class with `pill-provider` sub-span
+- Input area structure unchanged, just class names aligned
 
-### Cloud (requires API keys)
-| Model | Provider |
-|-------|----------|
-| GPT-4o / GPT-4o Mini | OpenAI |
-| Claude Sonnet 4.5 / Claude Haiku 4.5 | Anthropic |
+### 5. `client/src/components/Sidebar.js`
+**What changed:**
+- Brand icon wrapped in `sidebar-brand-icon` div (neon glow box)
+- Active conversation uses `conv-item active` for the neon-lit indicator
+- User avatar uses `user-avatar` class for cyan border treatment
+- Added logout button icon
 
-## Quick Start (Local)
+### 6. `client/src/components/ModelSelector.js`
+**What changed:**
+- Dropdown uses `model-selector-btn` / `model-dropdown` / `model-option` classes
+- Selected state uses `.selected` class (cyan left border + glow)
+- Provider shown in `model-provider` span (uppercase monospace)
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- MongoDB (or Docker for MongoDB)
-- Ollama (for local models)
+### 7. `client/src/components/ChatMessage.js`
+**What changed:**
+- Avatar uses unicode symbols (▶ for user, ◆ for AI) instead of letter initials
+- Message uses `message-user` / `message-assistant` classes for colored borders
+- Role label is uppercase monospace with color coding
 
-### 1. Start MongoDB
-```bash
-docker run -d -p 27017:27017 --name nexuschat-mongo mongo:7
-```
+---
 
-### 2. Start Ollama and pull a model
-```bash
-ollama serve
-ollama pull llama3.2
-```
+## Files You Do NOT Need to Change
+- `App.js` — routing logic stays the same
+- `index.js` — entry point stays the same
+- `context/AuthContext.js` — auth logic stays the same
+- `services/api.js` — API calls stay the same
+- Entire `server/` folder — backend is untouched
 
-### 3. Start the backend
-```bash
-cd server
-pip install -r requirements.txt
-cp .env.example .env
-python run.py
-```
-Backend runs at http://localhost:8000
-
-### 4. Start the frontend
-```bash
-cd client
-npm install
-npm start
-```
-Frontend runs at http://localhost:3000
-
-### 5. Open in browser
-Go to http://localhost:3000, create an account, and start chatting!
-
-## Quick Start (Docker)
-
-### 1. Start Ollama and pull a model
-```bash
-ollama serve
-ollama pull llama3.2
-```
-
-### 2. Run with Docker Compose
-```bash
-cp .env.example .env
-docker-compose up --build
-```
-Open http://localhost:3000
-
-## Cloud API Keys (Optional)
-
-To use OpenAI or Anthropic models, add your keys to `.env`:
-```
-OPENAI_API_KEY=sk-your-key-here
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-```
-
-## Project Structure
-
-```
-nexuschat/
-├── server/                     # Python FastAPI backend
-│   ├── app/
-│   │   ├── main.py             # FastAPI app & MongoDB connection
-│   │   ├── config.py           # Environment configuration
-│   │   ├── models.py           # Pydantic schemas
-│   │   ├── auth_utils.py       # JWT & password utilities
-│   │   ├── routes/
-│   │   │   ├── auth.py         # Register, Login, Get User
-│   │   │   ├── chat.py         # Conversations & Messages (SSE)
-│   │   │   └── llm.py          # List available models
-│   │   └── services/
-│   │       └── llm_service.py  # Ollama/OpenAI/Anthropic integration
-│   ├── requirements.txt
-│   ├── run.py
-│   └── Dockerfile
-├── client/                     # React frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Sidebar.js      # Conversation list & user menu
-│   │   │   ├── ModelSelector.js# LLM dropdown grouped by provider
-│   │   │   └── ChatMessage.js  # Message bubbles with code rendering
-│   │   ├── context/
-│   │   │   └── AuthContext.js  # Auth state management
-│   │   ├── pages/
-│   │   │   ├── LoginPage.js    # Login/Register form
-│   │   │   └── ChatPage.js     # Main chat interface
-│   │   ├── services/
-│   │   │   └── api.js          # HTTP & streaming API calls
-│   │   ├── App.js              # Routes & auth guards
-│   │   └── App.css             # Full application styles
-│   ├── package.json
-│   └── Dockerfile
-├── docker-compose.yml
-└── README.md
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/auth/register | Register new user |
-| POST | /api/auth/login | Login |
-| GET | /api/auth/me | Get current user |
-| GET | /api/chat/conversations | List conversations |
-| POST | /api/chat/conversations | Create conversation |
-| DELETE | /api/chat/conversations/:id | Delete conversation |
-| GET | /api/chat/conversations/:id/messages | Get messages |
-| POST | /api/chat/conversations/:id/messages | Send message (SSE stream) |
-| GET | /api/llm/models | List available models |
-
-## Troubleshooting
-
-**"Cannot connect to Ollama"**
-- Make sure Ollama is running: `ollama serve`
-- Docker users: Ollama must run on the host, not inside Docker
-
-**"No models installed"**
-- Pull at least one model: `ollama pull llama3.2`
-
-**Cloud models show as unavailable**
-- Add your API keys to the `.env` file and restart the server
-
-**MongoDB connection failed**
-- Make sure MongoDB is running on port 27017
-- Docker users: `docker-compose up` starts MongoDB automatically
-
-## License
-
-MIT License — built for learning and school projects!
+## How to Apply
+1. Back up your current `client/src/App.css` (just in case)
+2. Copy each file from this download into the matching path in your project
+3. Run `npm start` from the `client/` folder
+4. That's it — the theme is entirely CSS-driven

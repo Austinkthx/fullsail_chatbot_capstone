@@ -25,125 +25,85 @@ export default function ChatPage() {
 
   // Load models and conversations on mount
   useEffect(() => {
-    fetchModels().then(setModels).catch(console.error);
-    fetchConversations().then(setConversations).catch(console.error);
+    fetchModels()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : res?.data || [];
+        setModels(list);
+        if (list.length > 0) setSelectedModel(list[0].id);
+  }).catch(console.error);
+
+    loadConversations();
+  }, []);
+
+  const loadConversations = useCallback(() => {
+    fetchConversations()
+      .then((res) => setConversations(Array.isArray(res) ? res : res?.data || []))
+      .catch(console.error);
   }, []);
 
   // Load messages when active conversation changes
-  const loadMessages = useCallback(async (convId) => {
-    if (!convId) {
-      setMessages([]);
-      return;
-    }
-    try {
-      const msgs = await fetchMessages(convId);
-      setMessages(msgs);
-    } catch (err) {
-      console.error('Failed to load messages:', err);
-    }
-  }, []);
-
   useEffect(() => {
-    loadMessages(activeConvId);
-  }, [activeConvId, loadMessages]);
+    if (activeConvId) {
+      fetchMessages(activeConvId)
+        .then((res) => setMessages(Array.isArray(res) ? res : res?.data || []))
+        .catch(console.error);
+    } else {
+      setMessages([]);
+    }
+  }, [activeConvId]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleNewChat = async () => {
-    setActiveConvId(null);
-    setMessages([]);
-    inputRef.current?.focus();
-  };
-
-  const handleSelectConversation = (convId) => {
-    setActiveConvId(convId);
-    // Set the model to match the conversation
-    const conv = conversations.find((c) => c.id === convId);
-    if (conv?.model_id) setSelectedModel(conv.model_id);
-  };
-
-  const handleDeleteConversation = async (convId) => {
-    try {
-      await deleteConversation(convId);
-      setConversations((prev) => prev.filter((c) => c.id !== convId));
-      if (activeConvId === convId) {
-        setActiveConvId(null);
-        setMessages([]);
-      }
-    } catch (err) {
-      console.error('Failed to delete conversation:', err);
-    }
-  };
-
   const handleSend = async () => {
-    const content = input.trim();
-    if (!content || streaming) return;
-
+    if (!input.trim() || streaming) return;
+    const userMsg = input.trim();
     setInput('');
     setStreaming(true);
 
     try {
       let convId = activeConvId;
 
-      // Create new conversation if needed
       if (!convId) {
-        const conv = await createConversation('New Conversation', selectedModel);
-        convId = conv.id;
+        const res = await createConversation(userMsg.slice(0, 50), selectedModel);
+        convId = res.data.id || res.data._id;
         setActiveConvId(convId);
-        setConversations((prev) => [conv, ...prev]);
+        loadConversations();
       }
 
-      // Add user message to UI
-      const userMsg = {
-        id: `temp-user-${Date.now()}`,
+      // Add user message locally
+      const userMessage = {
+        id: Date.now(),
         role: 'user',
-        content,
+        content: userMsg,
         model_id: selectedModel,
-        created_at: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [...prev, userMessage]);
 
-      // Add placeholder assistant message
-      const assistantId = `temp-assistant-${Date.now()}`;
+      // Add placeholder for assistant
+      const assistantId = Date.now() + 1;
       setMessages((prev) => [
         ...prev,
-        {
-          id: assistantId,
-          role: 'assistant',
-          content: '',
-          model_id: selectedModel,
-          created_at: new Date().toISOString(),
-        },
+        { id: assistantId, role: 'assistant', content: '', model_id: selectedModel },
       ]);
 
-      // Stream the response
-      await sendMessageStream(convId, content, selectedModel, (partialText) => {
+      // Stream response
+      await sendMessageStream(convId, userMsg, selectedModel, (chunk) => {
         setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantId ? { ...msg, content: partialText } : msg
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: m.content + chunk } : m
           )
         );
       });
 
-      // Refresh conversations to update title
-      const updatedConvs = await fetchConversations();
-      setConversations(updatedConvs);
+      loadConversations();
     } catch (err) {
-      console.error('Send failed:', err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
-          role: 'assistant',
-          content: 'Sorry, something went wrong. Please check that your backend and LLM provider are running.',
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      console.error('Send error:', err);
     } finally {
       setStreaming(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -154,55 +114,80 @@ export default function ChatPage() {
     }
   };
 
-  const activeConv = conversations.find((c) => c.id === activeConvId);
+  const handleNewChat = () => {
+    setActiveConvId(null);
+    setMessages([]);
+    inputRef.current?.focus();
+  };
+
+  const handleDeleteConversation = async (convId) => {
+    try {
+      await deleteConversation(convId);
+      if (activeConvId === convId) {
+        setActiveConvId(null);
+        setMessages([]);
+      }
+      loadConversations();
+    } catch (err) {
+      console.error('Delete error:', err);
+    }
+  };
 
   return (
-    <div className={`chat-layout ${!sidebarOpen ? 'sidebar-closed' : ''}`}>
+    <div className="chat-layout">
       <Sidebar
         conversations={conversations}
         activeConvId={activeConvId}
-        onSelect={handleSelectConversation}
+        onSelect={setActiveConvId}
         onDelete={handleDeleteConversation}
         onNewChat={handleNewChat}
         isOpen={sidebarOpen}
       />
 
       <main className="chat-main">
-        {/* Top bar */}
+        {/* Holographic topbar */}
         <div className="chat-topbar">
-          <button
-            className="sidebar-toggle"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-          <div className="topbar-title">
-            {activeConv ? activeConv.title : 'NexusChat'}
+          <div className="topbar-left">
+            <button
+              className="hamburger-btn"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M3 5h12M3 9h12M3 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+            <span className="topbar-title">NexusChat</span>
           </div>
+
           <ModelSelector
             models={models}
-            selected={selectedModel}
-            onChange={setSelectedModel}
+            selectedModel={selectedModel}
+            onSelect={setSelectedModel}
           />
         </div>
 
-        {/* Messages */}
-        <div className="messages-container">
+        {/* Messages or empty state */}
+        <div className="chat-messages">
           {messages.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                  <rect width="48" height="48" rx="12" fill="#6366f1" fillOpacity="0.1" />
-                  <path d="M16 18h16M16 24h10M16 30h13" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" />
+              {/* Rotating square logo */}
+              <div className="empty-logo">
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                  <path
+                    d="M10 12h12M10 16h8M10 20h10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
                 </svg>
               </div>
               <h2>Start a conversation</h2>
               <p>Select a model from the dropdown above and type a message below.</p>
+
+              {/* Quick model pills */}
               <div className="model-pills">
                 {models
-                  .filter((m) => m.available)
+                  .filter((m) => m.available !== false)
                   .slice(0, 4)
                   .map((m) => (
                     <button
@@ -224,7 +209,7 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
+        {/* Input area */}
         <div className="input-container">
           <div className="input-wrapper">
             <textarea
@@ -246,8 +231,14 @@ export default function ChatPage() {
                   <span /><span /><span />
                 </div>
               ) : (
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M3 10l7-7m0 0l7 7m-7-7v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                  <path
+                    d="M3 10l7-7m0 0l7 7m-7-7v14"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               )}
             </button>

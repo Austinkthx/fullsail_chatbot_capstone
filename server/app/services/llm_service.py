@@ -1,5 +1,5 @@
 """
-LLM Service - Unified interface for Ollama, OpenAI, and Anthropic
+LLM Service - Unified interface for Ollama, OpenAI, Anthropic, and Groq
 Handles model listing and streaming chat completions
 """
 import httpx
@@ -17,6 +17,11 @@ MODELS = [
     {"id": "qwen2.5:3b", "name": "Qwen 2.5 (3B)", "provider": "ollama", "description": "Alibaba's multilingual model"},
     {"id": "phi3:mini", "name": "Phi-3 Mini", "provider": "ollama", "description": "Microsoft's compact model"},
     {"id": "deepseek-r1:1.5b", "name": "DeepSeek R1 (1.5B)", "provider": "ollama", "description": "DeepSeek reasoning model"},
+    # Groq (cloud - free)
+    {"id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B", "provider": "groq", "description": "Meta's powerful 70B model via Groq"},
+    {"id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B", "provider": "groq", "description": "Fast and capable 8B model"},
+    {"id": "gemma2-9b-it", "name": "Gemma 2 9B", "provider": "groq", "description": "Google's 9B model via Groq"},
+    {"id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B", "provider": "groq", "description": "Mistral's mixture-of-experts model"},
     # OpenAI (cloud)
     {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "description": "OpenAI's flagship model"},
     {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "description": "Fast and affordable"},
@@ -31,6 +36,7 @@ class LLMService:
         self.ollama_url = settings.OLLAMA_BASE_URL
         self.openai_key = settings.OPENAI_API_KEY
         self.anthropic_key = settings.ANTHROPIC_API_KEY
+        self.groq_key = settings.GROQ_API_KEY
 
     async def get_available_models(self) -> list:
         """Return models with availability status"""
@@ -43,6 +49,8 @@ class LLMService:
                 m["available"] = bool(self.openai_key)
             elif model["provider"] == "anthropic":
                 m["available"] = bool(self.anthropic_key)
+            elif model["provider"] == "groq":
+                m["available"] = bool(self.groq_key)
             models.append(m)
         return models
 
@@ -76,6 +84,9 @@ class LLMService:
         elif provider == "anthropic":
             async for chunk in self._stream_anthropic(model_id, messages):
                 yield chunk
+        elif provider == "groq":
+            async for chunk in self._stream_groq(model_id, messages):
+                yield chunk
         else:
             yield f"Error: Unknown model '{model_id}'"
 
@@ -85,7 +96,7 @@ class LLMService:
                 return model["provider"]
         return "ollama"  # Default to Ollama
 
-    # ─── Ollama ───────────────────────────────────────────────
+    # --- Ollama -----------------------------------------------
 
     async def _stream_ollama(
         self, model_id: str, messages: list
@@ -112,7 +123,7 @@ class LLMService:
         except Exception as e:
             yield f"Error: {str(e)}"
 
-    # ─── OpenAI ───────────────────────────────────────────────
+    # --- OpenAI -----------------------------------------------
 
     async def _stream_openai(
         self, model_id: str, messages: list
@@ -153,7 +164,7 @@ class LLMService:
         except Exception as e:
             yield f"Error: {str(e)}"
 
-    # ─── Anthropic ────────────────────────────────────────────
+    # --- Anthropic --------------------------------------------
 
     async def _stream_anthropic(
         self, model_id: str, messages: list
@@ -197,6 +208,47 @@ class LLMService:
                                     content = data.get("delta", {}).get("text", "")
                                     if content:
                                         yield content
+                            except json.JSONDecodeError:
+                                continue
+        except Exception as e:
+            yield f"Error: {str(e)}"
+
+    # --- Groq -------------------------------------------------
+
+    async def _stream_groq(
+        self, model_id: str, messages: list
+    ) -> AsyncGenerator[str, None]:
+        if not self.groq_key:
+            yield "Error: Groq API key not configured. Set GROQ_API_KEY in your .env file."
+            return
+
+        try:
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.groq_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model_id,
+                        "messages": messages,
+                        "stream": True,
+                    },
+                    timeout=120.0,
+                ) as response:
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: ") and line != "data: [DONE]":
+                            try:
+                                data = json.loads(line[6:])
+                                content = (
+                                    data.get("choices", [{}])[0]
+                                    .get("delta", {})
+                                    .get("content", "")
+                                )
+                                if content:
+                                    yield content
                             except json.JSONDecodeError:
                                 continue
         except Exception as e:
